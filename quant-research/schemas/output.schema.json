@@ -1,0 +1,390 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.lorenz.ai/skills/quant-research/output/v1alpha1",
+  "title": "EvidenceBundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "question",
+    "asOf",
+    "sourceTaint",
+    "coverage",
+    "claims",
+    "contradictions",
+    "tradingHypotheses",
+    "freshnessWarnings",
+    "unansweredQuestions",
+    "disposition"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "lorenz.trading/evidence-bundle/v1alpha1"
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date"
+    },
+    "sourceTaint": {
+      "const": "untrusted_external"
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "claims": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/contradiction"
+      }
+    },
+    "tradingHypotheses": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/tradingHypothesis"
+      }
+    },
+    "freshnessWarnings": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "unansweredQuestions": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "disposition": {
+      "enum": [
+        "READY_FOR_STRATEGY_DESIGN",
+        "NEEDS_MORE_EVIDENCE",
+        "REJECTED"
+      ]
+    }
+  },
+  "$defs": {
+    "citationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "spanId"],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "spanId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordsReceived",
+        "recordsWithCitationSpans",
+        "recordsExcluded",
+        "tierCounts",
+        "exclusions"
+      ],
+      "properties": {
+        "recordsReceived": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "recordsWithCitationSpans": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "recordsExcluded": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "tierCounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["TIER_1", "TIER_2", "TIER_3"],
+          "properties": {
+            "TIER_1": {"type": "integer", "minimum": 0, "maximum": 500},
+            "TIER_2": {"type": "integer", "minimum": 0, "maximum": 500},
+            "TIER_3": {"type": "integer", "minimum": 0, "maximum": 500}
+          }
+        },
+        "exclusions": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sourceId", "reason"],
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              }
+            }
+          }
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claimId",
+        "text",
+        "classification",
+        "status",
+        "useEligibility",
+        "evidenceTiers",
+        "citationRefs"
+      ],
+      "properties": {
+        "claimId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "classification": {
+          "enum": [
+            "MARKET_MECHANISM",
+            "MODELING_METHOD",
+            "OPERATIONAL_LIMIT",
+            "ALPHA_CLAIM",
+            "PRODUCT_DISCOVERY"
+          ]
+        },
+        "status": {
+          "enum": ["SUPPORTED", "CONTRADICTED", "UNCERTAIN"]
+        },
+        "useEligibility": {
+          "enum": [
+            "PRIMARY_EVIDENCE",
+            "FAILURE_HYPOTHESIS_ONLY",
+            "TOOL_DISCOVERY_ONLY",
+            "EXCLUDED"
+          ]
+        },
+        "evidenceTiers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["TIER_1", "TIER_2", "TIER_3"]
+          }
+        },
+        "citationRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/citationRef"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidenceTiers": {
+                "contains": {"const": "TIER_3"},
+                "minContains": 1
+              }
+            },
+            "required": ["evidenceTiers"]
+          },
+          "then": {
+            "properties": {
+              "useEligibility": {
+                "enum": [
+                  "FAILURE_HYPOTHESIS_ONLY",
+                  "TOOL_DISCOVERY_ONLY",
+                  "EXCLUDED"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "contradiction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contradictionId",
+        "claimIds",
+        "citationRefs",
+        "resolution",
+        "rationale"
+      ],
+      "properties": {
+        "contradictionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "claimIds": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "citationRefs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/citationRef"
+          }
+        },
+        "resolution": {
+          "enum": [
+            "UNRESOLVED",
+            "RESOLVED_BY_VERSION",
+            "RESOLVED_BY_SCOPE"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "tradingHypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesisId",
+        "kind",
+        "statement",
+        "status",
+        "evidenceStrength",
+        "evidenceClaimIds",
+        "falsifiablePrediction",
+        "evaluationPlan",
+        "failureModes"
+      ],
+      "properties": {
+        "hypothesisId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "kind": {
+          "enum": ["STRATEGY_CANDIDATE", "FAILURE_MODE"]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "status": {
+          "const": "UNTESTED"
+        },
+        "evidenceStrength": {
+          "enum": [
+            "TIER_1",
+            "TIER_1_AND_2",
+            "TIER_2_WITH_LIMITATIONS",
+            "TIER_3_ONLY"
+          ]
+        },
+        "evidenceClaimIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "falsifiablePrediction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "evaluationPlan": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000
+        },
+        "failureModes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {"const": "STRATEGY_CANDIDATE"}
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "evidenceStrength": {
+                "enum": [
+                  "TIER_1",
+                  "TIER_1_AND_2",
+                  "TIER_2_WITH_LIMITATIONS"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

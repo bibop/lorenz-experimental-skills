@@ -1,0 +1,75 @@
+apiVersion: lorenz.ai/v1alpha1
+kind: Skill
+metadata:
+  namespace: lorenz
+  name: research
+  version: 1.0.0-alpha.1
+  title: Research
+  description: Produces a source-grounded research plan and citation-preserving synthesis.
+  annotations:
+    lorenz.ai/tier: core
+    lorenz.ai/status: experimental
+spec:
+  skillType: prompt
+  license: Apache-2.0
+  source:
+    repository: https://github.com/bibop/Lorenz
+    commitSha: 56ba5923b71e749c09962dbf771b31a99431e821
+    subdirectory: examples/skills/research
+  entrypoint: SKILL.md
+  artifacts:
+    - path: SKILL.md
+      digest: sha256:e78e3ee9c9f39eaf26858d13ca5198954fc3b3b12f2b846f2f6a0e6056c0ab2b
+      mediaType: text/markdown
+      role: entrypoint
+    - path: tests/golden.json
+      digest: sha256:ccf094dd5dec4c4e86bd35b48a0204d651bd8f74affcb2d66faa7a5990a91a5e
+      mediaType: application/json
+      role: test
+  inputSchema:
+    type: object
+    additionalProperties: false
+    required: [question, sourceRecords]
+    properties:
+      question: {type: string}
+      allowedSources: {type: array, items: {type: string}}
+      asOf: {type: string}
+      freshnessRequirements: {type: array, items: {type: string}}
+      sourceRecords: {type: array, items: {type: object}}
+      priorClaims: {type: array, items: {type: object}}
+  outputSchema:
+    type: object
+    additionalProperties: false
+    required: [subquestions, claims, contradictions, unansweredQuestions, answerOutline]
+    properties:
+      subquestions: {type: array, items: {type: string}}
+      claims: {type: array, items: {type: object}}
+      inferences: {type: array, items: {type: object}}
+      contradictions: {type: array, items: {type: object}}
+      freshnessWarnings: {type: array, items: {type: string}}
+      unansweredQuestions: {type: array, items: {type: string}}
+      answerOutline: {type: array, items: {type: object}}
+      writebackProposals: {type: array, items: {type: object}}
+  requiredCapabilities: []
+  dataScopes: []
+  egressDestinations: []
+  secretRefs: []
+  sideEffects: [none]
+  approval:
+    requiredFor: []
+  sandbox:
+    profile: prompt_only
+    readOnlyRoot: true
+    networkDisabledByDefault: true
+  resources:
+    maxDurationSeconds: 180
+    maxMemoryMb: 128
+    maxDiskMb: 0
+    maxProcesses: 1
+    maxOutputBytes: 500000
+  supportedPlatforms:
+    - {os: linux, architecture: x86_64}
+    - {os: linux, architecture: arm64}
+    - {os: macos, architecture: x86_64}
+    - {os: macos, architecture: arm64}
+  tests: [tests/golden.json]

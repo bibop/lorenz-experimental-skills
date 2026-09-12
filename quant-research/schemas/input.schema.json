@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.lorenz.ai/skills/quant-research/input/v1alpha1",
+  "title": "QuantResearchInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "question",
+    "asOf",
+    "lookbackDays",
+    "researchSynthesis",
+    "sourceRecords"
+  ],
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date"
+    },
+    "lookbackDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 90
+    },
+    "researchSynthesis": {
+      "$ref": "#/$defs/researchSynthesis"
+    },
+    "sourceRecords": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/sourceRecord"
+      }
+    },
+    "priorHypotheses": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/priorHypothesis"
+      }
+    }
+  },
+  "$defs": {
+    "citationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "spanId"],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "spanId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      }
+    },
+    "sourceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "sourceType",
+        "tier",
+        "canonicalUrl",
+        "title",
+        "publishedAt",
+        "acquiredAt",
+        "licenseStatus",
+        "taint",
+        "citationSpans"
+      ],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "sourceType": {
+          "enum": [
+            "paper",
+            "preprint",
+            "official_documentation",
+            "official_repository",
+            "technical_blog",
+            "youtube",
+            "reddit"
+          ]
+        },
+        "tier": {
+          "enum": ["TIER_1", "TIER_2", "TIER_3"]
+        },
+        "canonicalUrl": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2000
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "publishedAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "acquiredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "contentSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "licenseStatus": {
+          "enum": [
+            "metadata_only",
+            "permitted_excerpt",
+            "licensed_full_text",
+            "unknown"
+          ]
+        },
+        "taint": {
+          "const": "untrusted_external"
+        },
+        "citationSpans": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["spanId", "locator"],
+            "properties": {
+              "spanId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "locator": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "excerpt": {
+                "type": "string",
+                "maxLength": 1000
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceType": {
+                "enum": [
+                  "paper",
+                  "preprint",
+                  "official_documentation",
+                  "official_repository"
+                ]
+              }
+            },
+            "required": ["sourceType"]
+          },
+          "then": {
+            "properties": {"tier": {"const": "TIER_1"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"sourceType": {"const": "technical_blog"}},
+            "required": ["sourceType"]
+          },
+          "then": {
+            "properties": {"tier": {"const": "TIER_2"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "sourceType": {"enum": ["youtube", "reddit"]}
+            },
+            "required": ["sourceType"]
+          },
+          "then": {
+            "properties": {"tier": {"const": "TIER_3"}}
+          }
+        }
+      ]
+    },
+    "researchClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claimId", "text", "status", "citationRefs"],
+      "properties": {
+        "claimId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "status": {
+          "enum": ["SUPPORTED", "CONTRADICTED", "UNCERTAIN"]
+        },
+        "citationRefs": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/citationRef"
+          }
+        }
+      }
+    },
+    "researchSynthesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subquestions",
+        "claims",
+        "contradictions",
+        "unansweredQuestions",
+        "answerOutline"
+      ],
+      "properties": {
+        "subquestions": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "claims": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/researchClaim"
+          }
+        },
+        "inferences": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object"
+          }
+        },
+        "contradictions": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object"
+          }
+        },
+        "freshnessWarnings": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "unansweredQuestions": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "answerOutline": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object"
+          }
+        },
+        "writebackProposals": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "priorHypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hypothesisId", "statement", "status"],
+      "properties": {
+        "hypothesisId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "status": {
+          "enum": ["UNTESTED", "REJECTED", "RETAINED"]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "fixtureFormat": "lorenz.skill.golden/v1alpha1",
+  "cases": [
+    {
+      "name": "contradictory-temporal-claims",
+      "input": {
+        "question": "Which version is deployed?",
+        "asOf": "2026-08-25",
+        "sourceRecords": [
+          {"id": "docs", "version": "1", "span": "12-18", "claim": "v2.9"},
+          {"id": "runtime", "version": "7", "span": "1-4", "claim": "v2.8"}
+        ]
+      },
+      "expectedInvariants": [
+        "the contradiction is explicit",
+        "both claims preserve source spans",
+        "runtime verification is proposed",
+        "no version is invented"
+      ]
+    }
+  ]
+}

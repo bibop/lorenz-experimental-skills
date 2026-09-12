@@ -1,0 +1,343 @@
+apiVersion: lorenz.ai/v1alpha1
+kind: Skill
+metadata:
+  namespace: lorenz
+  name: quant-research
+  version: 1.0.0-alpha.1
+  title: Quant Research
+  description: Converts a citation-preserving research synthesis into tiered evidence and falsifiable, untested quantitative-trading
+    hypotheses.
+  annotations: {lorenz.ai/tier: trading, lorenz.ai/status: experimental, lorenz.ai/base-skill: 'skill://lorenz/research@1.0.0-alpha.1',
+    lorenz.ai/provenance-status: source-commit-pinned}
+spec:
+  skillType: prompt
+  license: Apache-2.0
+  source: {repository: 'https://github.com/bibop/Lorenz', commitSha: 'd1161f0c7976670032d47387184be63fb4036c47', subdirectory: examples/skills/quant-research}
+  entrypoint: SKILL.md
+  artifacts:
+  - {path: SKILL.md, digest: 'sha256:db2bc4471ce737eb2f33c99d85ab0c235d51feeb589ca5bedefe6d73a1263733', mediaType: text/markdown,
+    role: entrypoint}
+  - {path: schemas/input.schema.json, digest: 'sha256:1b722aa46c846aa35ec2b8b99b99f49679bded8d01c7bdef1293277f9f1aeb18', mediaType: application/schema+json,
+    role: documentation}
+  - {path: schemas/output.schema.json, digest: 'sha256:14c91e6e2f3c9f7df5b3b7b0fff6e00294e7ba7e7db6cf68bfaaa85153cfac75',
+    mediaType: application/schema+json, role: documentation}
+  - {path: tests/golden.json, digest: 'sha256:fc232e26e1e5603c327f6c9132bfba5f88bd2cfd93e15356ed8347ee0f4032ab', mediaType: application/json,
+    role: test}
+  inputSchema:
+    $schema: https://json-schema.org/draft/2020-12/schema
+    $id: https://schemas.lorenz.ai/skills/quant-research/input/v1alpha1
+    title: QuantResearchInput
+    type: object
+    additionalProperties: false
+    required: [question, asOf, lookbackDays, researchSynthesis, sourceRecords]
+    properties:
+      question: {type: string, minLength: 1, maxLength: 2000}
+      asOf: {type: string, format: date}
+      lookbackDays: {type: integer, minimum: 1, maximum: 90}
+      researchSynthesis: {$ref: '#/$defs/researchSynthesis'}
+      sourceRecords:
+        type: array
+        maxItems: 500
+        items: {$ref: '#/$defs/sourceRecord'}
+      priorHypotheses:
+        type: array
+        maxItems: 100
+        items: {$ref: '#/$defs/priorHypothesis'}
+    $defs:
+      citationRef:
+        type: object
+        additionalProperties: false
+        required: [sourceId, spanId]
+        properties:
+          sourceId: {type: string, minLength: 1, maxLength: 160}
+          spanId: {type: string, minLength: 1, maxLength: 160}
+      sourceRecord:
+        type: object
+        additionalProperties: false
+        required: [sourceId, sourceType, tier, canonicalUrl, title, publishedAt, acquiredAt, licenseStatus, taint, citationSpans]
+        properties:
+          sourceId: {type: string, minLength: 1, maxLength: 160}
+          sourceType:
+            enum: [paper, preprint, official_documentation, official_repository, technical_blog, youtube, reddit]
+          tier:
+            enum: [TIER_1, TIER_2, TIER_3]
+          canonicalUrl: {type: string, format: uri, maxLength: 2000}
+          title: {type: string, minLength: 1, maxLength: 500}
+          author: {type: string, maxLength: 300}
+          publishedAt: {type: [string, 'null'], format: date-time}
+          acquiredAt: {type: string, format: date-time}
+          version: {type: string, maxLength: 160}
+          contentSha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+          licenseStatus:
+            enum: [metadata_only, permitted_excerpt, licensed_full_text, unknown]
+          taint: {const: untrusted_external}
+          citationSpans:
+            type: array
+            maxItems: 200
+            items:
+              type: object
+              additionalProperties: false
+              required: [spanId, locator]
+              properties:
+                spanId: {type: string, minLength: 1, maxLength: 160}
+                locator: {type: string, minLength: 1, maxLength: 300}
+                excerpt: {type: string, maxLength: 1000}
+        allOf:
+        - if:
+            properties:
+              sourceType:
+                enum: [paper, preprint, official_documentation, official_repository]
+            required: [sourceType]
+          then:
+            properties:
+              tier: {const: TIER_1}
+        - if:
+            properties:
+              sourceType: {const: technical_blog}
+            required: [sourceType]
+          then:
+            properties:
+              tier: {const: TIER_2}
+        - if:
+            properties:
+              sourceType:
+                enum: [youtube, reddit]
+            required: [sourceType]
+          then:
+            properties:
+              tier: {const: TIER_3}
+      researchClaim:
+        type: object
+        additionalProperties: false
+        required: [claimId, text, status, citationRefs]
+        properties:
+          claimId: {type: string, minLength: 1, maxLength: 160}
+          text: {type: string, minLength: 1, maxLength: 3000}
+          status:
+            enum: [SUPPORTED, CONTRADICTED, UNCERTAIN]
+          citationRefs:
+            type: array
+            maxItems: 50
+            items: {$ref: '#/$defs/citationRef'}
+      researchSynthesis:
+        type: object
+        additionalProperties: false
+        required: [subquestions, claims, contradictions, unansweredQuestions, answerOutline]
+        properties:
+          subquestions:
+            type: array
+            maxItems: 100
+            items: {type: string, minLength: 1, maxLength: 1000}
+          claims:
+            type: array
+            maxItems: 500
+            items: {$ref: '#/$defs/researchClaim'}
+          inferences:
+            type: array
+            maxItems: 200
+            items: {type: object}
+          contradictions:
+            type: array
+            maxItems: 200
+            items: {type: object}
+          freshnessWarnings:
+            type: array
+            maxItems: 200
+            items: {type: string, maxLength: 1000}
+          unansweredQuestions:
+            type: array
+            maxItems: 200
+            items: {type: string, maxLength: 1000}
+          answerOutline:
+            type: array
+            maxItems: 100
+            items: {type: object}
+          writebackProposals:
+            type: array
+            maxItems: 100
+            items: {type: object}
+      priorHypothesis:
+        type: object
+        additionalProperties: false
+        required: [hypothesisId, statement, status]
+        properties:
+          hypothesisId: {type: string, minLength: 1, maxLength: 160}
+          statement: {type: string, minLength: 1, maxLength: 3000}
+          status:
+            enum: [UNTESTED, REJECTED, RETAINED]
+  outputSchema:
+    $schema: https://json-schema.org/draft/2020-12/schema
+    $id: https://schemas.lorenz.ai/skills/quant-research/output/v1alpha1
+    title: EvidenceBundle
+    type: object
+    additionalProperties: false
+    required: [schemaVersion, question, asOf, sourceTaint, coverage, claims, contradictions, tradingHypotheses, freshnessWarnings,
+      unansweredQuestions, disposition]
+    properties:
+      schemaVersion: {const: lorenz.trading/evidence-bundle/v1alpha1}
+      question: {type: string, minLength: 1, maxLength: 2000}
+      asOf: {type: string, format: date}
+      sourceTaint: {const: untrusted_external}
+      coverage: {$ref: '#/$defs/coverage'}
+      claims:
+        type: array
+        maxItems: 500
+        items: {$ref: '#/$defs/claim'}
+      contradictions:
+        type: array
+        maxItems: 200
+        items: {$ref: '#/$defs/contradiction'}
+      tradingHypotheses:
+        type: array
+        maxItems: 100
+        items: {$ref: '#/$defs/tradingHypothesis'}
+      freshnessWarnings:
+        type: array
+        maxItems: 200
+        items: {type: string, maxLength: 1000}
+      unansweredQuestions:
+        type: array
+        maxItems: 200
+        items: {type: string, maxLength: 1000}
+      disposition:
+        enum: [READY_FOR_STRATEGY_DESIGN, NEEDS_MORE_EVIDENCE, REJECTED]
+    $defs:
+      citationRef:
+        type: object
+        additionalProperties: false
+        required: [sourceId, spanId]
+        properties:
+          sourceId: {type: string, minLength: 1, maxLength: 160}
+          spanId: {type: string, minLength: 1, maxLength: 160}
+      coverage:
+        type: object
+        additionalProperties: false
+        required: [recordsReceived, recordsWithCitationSpans, recordsExcluded, tierCounts, exclusions]
+        properties:
+          recordsReceived: {type: integer, minimum: 0, maximum: 500}
+          recordsWithCitationSpans: {type: integer, minimum: 0, maximum: 500}
+          recordsExcluded: {type: integer, minimum: 0, maximum: 500}
+          tierCounts:
+            type: object
+            additionalProperties: false
+            required: [TIER_1, TIER_2, TIER_3]
+            properties:
+              TIER_1: {type: integer, minimum: 0, maximum: 500}
+              TIER_2: {type: integer, minimum: 0, maximum: 500}
+              TIER_3: {type: integer, minimum: 0, maximum: 500}
+          exclusions:
+            type: array
+            maxItems: 500
+            items:
+              type: object
+              additionalProperties: false
+              required: [sourceId, reason]
+              properties:
+                sourceId: {type: string, minLength: 1, maxLength: 160}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+      claim:
+        type: object
+        additionalProperties: false
+        required: [claimId, text, classification, status, useEligibility, evidenceTiers, citationRefs]
+        properties:
+          claimId: {type: string, minLength: 1, maxLength: 160}
+          text: {type: string, minLength: 1, maxLength: 3000}
+          classification:
+            enum: [MARKET_MECHANISM, MODELING_METHOD, OPERATIONAL_LIMIT, ALPHA_CLAIM, PRODUCT_DISCOVERY]
+          status:
+            enum: [SUPPORTED, CONTRADICTED, UNCERTAIN]
+          useEligibility:
+            enum: [PRIMARY_EVIDENCE, FAILURE_HYPOTHESIS_ONLY, TOOL_DISCOVERY_ONLY, EXCLUDED]
+          evidenceTiers:
+            type: array
+            minItems: 1
+            maxItems: 3
+            uniqueItems: true
+            items:
+              enum: [TIER_1, TIER_2, TIER_3]
+          citationRefs:
+            type: array
+            minItems: 1
+            maxItems: 50
+            items: {$ref: '#/$defs/citationRef'}
+        allOf:
+        - if:
+            properties:
+              evidenceTiers:
+                contains: {const: TIER_3}
+                minContains: 1
+            required: [evidenceTiers]
+          then:
+            properties:
+              useEligibility:
+                enum: [FAILURE_HYPOTHESIS_ONLY, TOOL_DISCOVERY_ONLY, EXCLUDED]
+      contradiction:
+        type: object
+        additionalProperties: false
+        required: [contradictionId, claimIds, citationRefs, resolution, rationale]
+        properties:
+          contradictionId: {type: string, minLength: 1, maxLength: 160}
+          claimIds:
+            type: array
+            minItems: 2
+            maxItems: 20
+            uniqueItems: true
+            items: {type: string, minLength: 1, maxLength: 160}
+          citationRefs:
+            type: array
+            minItems: 2
+            maxItems: 50
+            items: {$ref: '#/$defs/citationRef'}
+          resolution:
+            enum: [UNRESOLVED, RESOLVED_BY_VERSION, RESOLVED_BY_SCOPE]
+          rationale: {type: string, minLength: 1, maxLength: 2000}
+      tradingHypothesis:
+        type: object
+        additionalProperties: false
+        required: [hypothesisId, kind, statement, status, evidenceStrength, evidenceClaimIds, falsifiablePrediction, evaluationPlan,
+          failureModes]
+        properties:
+          hypothesisId: {type: string, minLength: 1, maxLength: 160}
+          kind:
+            enum: [STRATEGY_CANDIDATE, FAILURE_MODE]
+          statement: {type: string, minLength: 1, maxLength: 3000}
+          status: {const: UNTESTED}
+          evidenceStrength:
+            enum: [TIER_1, TIER_1_AND_2, TIER_2_WITH_LIMITATIONS, TIER_3_ONLY]
+          evidenceClaimIds:
+            type: array
+            minItems: 1
+            maxItems: 100
+            uniqueItems: true
+            items: {type: string, minLength: 1, maxLength: 160}
+          falsifiablePrediction: {type: string, minLength: 1, maxLength: 3000}
+          evaluationPlan: {type: string, minLength: 1, maxLength: 5000}
+          failureModes:
+            type: array
+            minItems: 1
+            maxItems: 50
+            items: {type: string, minLength: 1, maxLength: 1000}
+        allOf:
+        - if:
+            properties:
+              kind: {const: STRATEGY_CANDIDATE}
+            required: [kind]
+          then:
+            properties:
+              evidenceStrength:
+                enum: [TIER_1, TIER_1_AND_2, TIER_2_WITH_LIMITATIONS]
+  requiredCapabilities: []
+  dataScopes: []
+  egressDestinations: []
+  secretRefs: []
+  sideEffects: [none]
+  approval:
+    requiredFor: []
+  sandbox: {profile: prompt_only, readOnlyRoot: true, networkDisabledByDefault: true}
+  resources: {maxDurationSeconds: 180, maxMemoryMb: 256, maxDiskMb: 0, maxProcesses: 1, maxOutputBytes: 750000}
+  supportedPlatforms:
+  - {os: linux, architecture: x86_64}
+  - {os: linux, architecture: arm64}
+  - {os: macos, architecture: x86_64}
+  - {os: macos, architecture: arm64}
+  tests: [tests/golden.json]
