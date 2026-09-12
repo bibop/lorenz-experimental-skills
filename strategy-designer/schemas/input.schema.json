@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.lorenz.ai/skills/strategy-designer/input/v1alpha1",
+  "title": "StrategyDesignerInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request",
+    "evidenceBundle",
+    "universe",
+    "immutablePolicies"
+  ],
+  "properties": {
+    "request": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "evidenceBundle": {
+      "$ref": "#/$defs/evidenceBundle"
+    },
+    "universe": {
+      "$ref": "#/$defs/universe"
+    },
+    "immutablePolicies": {
+      "$ref": "#/$defs/immutablePolicies"
+    },
+    "requestedModelFamilies": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/modelFamily"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "modelFamily": {
+      "enum": [
+        "baseline_cash",
+        "benchmark",
+        "ridge",
+        "elastic_net",
+        "robust_linear",
+        "lightgbm",
+        "causal_tcn",
+        "tcn_attention",
+        "compact_transformer",
+        "ensemble"
+      ]
+    },
+    "evidenceBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "digest",
+        "disposition",
+        "claimIds",
+        "hypotheses"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "lorenz.trading/evidence-bundle/v1alpha1"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "disposition": {
+          "enum": [
+            "READY_FOR_STRATEGY_DESIGN",
+            "NEEDS_MORE_EVIDENCE",
+            "REJECTED"
+          ]
+        },
+        "claimIds": {
+          "type": "array",
+          "maxItems": 500,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "hypotheses": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "hypothesisId",
+              "kind",
+              "statement",
+              "status",
+              "evidenceStrength",
+              "evidenceClaimIds"
+            ],
+            "properties": {
+              "hypothesisId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "kind": {
+                "enum": ["STRATEGY_CANDIDATE", "FAILURE_MODE"]
+              },
+              "statement": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 3000
+              },
+              "status": {
+                "const": "UNTESTED"
+              },
+              "evidenceStrength": {
+                "enum": [
+                  "TIER_1",
+                  "TIER_1_AND_2",
+                  "TIER_2_WITH_LIMITATIONS",
+                  "TIER_3_ONLY"
+                ]
+              },
+              "evidenceClaimIds": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 100,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {"const": "STRATEGY_CANDIDATE"}
+                  },
+                  "required": ["kind"]
+                },
+                "then": {
+                  "properties": {
+                    "evidenceStrength": {
+                      "enum": [
+                        "TIER_1",
+                        "TIER_1_AND_2",
+                        "TIER_2_WITH_LIMITATIONS"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "evidenceStrength": {"const": "TIER_3_ONLY"}
+                  },
+                  "required": ["evidenceStrength"]
+                },
+                "then": {
+                  "properties": {
+                    "kind": {"const": "FAILURE_MODE"}
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {"const": "READY_FOR_STRATEGY_DESIGN"}
+            },
+            "required": ["disposition"]
+          },
+          "then": {
+            "properties": {
+              "hypotheses": {
+                "contains": {
+                  "type": "object",
+                  "required": ["kind", "evidenceStrength"],
+                  "properties": {
+                    "kind": {"const": "STRATEGY_CANDIDATE"},
+                    "evidenceStrength": {
+                      "enum": ["TIER_1", "TIER_1_AND_2", "TIER_2_WITH_LIMITATIONS"]
+                    }
+                  }
+                },
+                "minContains": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["universeId", "digest", "symbols", "notBefore"],
+      "properties": {
+        "universeId": {
+          "const": "us_liquid_etf_20_v2"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "symbols": {
+          "const": [
+            "SPY",
+            "QQQ",
+            "IWM",
+            "DIA",
+            "XLB",
+            "XLE",
+            "XLF",
+            "XLI",
+            "XLK",
+            "XLP",
+            "XLU",
+            "XLV",
+            "XLY",
+            "VOX",
+            "VNQ",
+            "MDY",
+            "VUG",
+            "VTV",
+            "IWF",
+            "IWD"
+          ]
+        },
+        "notBefore": {
+          "const": "2016-01-04"
+        }
+      }
+    },
+    "immutablePolicies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "riskPolicyDigest",
+        "costModelDigest",
+        "benchmarkDigest",
+        "evaluatorDigest",
+        "assetClass",
+        "longOnly",
+        "leverageAllowed",
+        "shortAllowed",
+        "optionsAllowed",
+        "cryptoAllowed",
+        "maxGross",
+        "maxPosition",
+        "targetVolatility",
+        "noTradeAllowed",
+        "earliestExecution"
+      ],
+      "properties": {
+        "riskPolicyDigest": {"$ref": "#/$defs/digest"},
+        "costModelDigest": {"$ref": "#/$defs/digest"},
+        "benchmarkDigest": {"$ref": "#/$defs/digest"},
+        "evaluatorDigest": {"$ref": "#/$defs/digest"},
+        "assetClass": {"const": "us_equity_etf"},
+        "longOnly": {"const": true},
+        "leverageAllowed": {"const": false},
+        "shortAllowed": {"const": false},
+        "optionsAllowed": {"const": false},
+        "cryptoAllowed": {"const": false},
+        "maxGross": {"const": 0.5},
+        "maxPosition": {"const": 0.1},
+        "targetVolatility": {"const": 0.08},
+        "noTradeAllowed": {"const": true},
+        "earliestExecution": {"const": "next_session"}
+      }
+    }
+  }
+}
